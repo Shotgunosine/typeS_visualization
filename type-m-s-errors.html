@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Type M & Type S Errors</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e0e0e0; min-height: 100vh; padding: 20px; }
+  h1 { text-align: center; font-size: 1.6em; margin-bottom: 4px; color: #fff; }
+  .subtitle { text-align: center; color: #888; font-size: 0.9em; margin-bottom: 20px; }
+  .controls { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-bottom: 24px; background: #1a1d27; padding: 16px 24px; border-radius: 12px; }
+  .ctrl { display: flex; flex-direction: column; gap: 4px; min-width: 180px; }
+  label { font-size: 0.78em; color: #aaa; text-transform: uppercase; letter-spacing: .05em; }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  input[type=range] { flex: 1; accent-color: #7eb8f7; }
+  input[type=number] {
+    width: 62px; background: #0f1117; border: 1px solid #333; border-radius: 5px;
+    color: #7eb8f7; font-size: 0.85em; font-weight: bold; padding: 3px 6px;
+    text-align: right; -moz-appearance: textfield;
+  }
+  input[type=number]:focus { outline: none; border-color: #7eb8f7; }
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 900px; margin: 0 auto; }
+  canvas { background: #1a1d27; border-radius: 10px; width: 100%; }
+  .stats { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+  .stat-box { background: #1a1d27; border-radius: 10px; padding: 14px 20px; text-align: center; flex: 1; min-width: 160px; }
+  .stat-label { font-size: 0.75em; color: #888; margin-bottom: 4px; }
+  .stat-val { font-size: 1.5em; font-weight: bold; }
+  .red { color: #ff6b6b; } .blue { color: #7eb8f7; } .green { color: #6bff9e; } .orange { color: #ffb347; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; font-size: 0.8em; }
+  .leg { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .info { max-width: 900px; margin: 16px auto 0; background: #1a1d27; border-radius: 10px; padding: 16px 20px; font-size: 0.85em; line-height: 1.6; color: #bbb; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info h3 { color: #fff; margin-bottom: 4px; font-size: 0.95em; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 6px; }
+  .tag-m { background: #ff6b6b33; color: #ff6b6b; }
+  .tag-s { background: #ffb34733; color: #ffb347; }
+  @media(max-width:600px){ .grid { grid-template-columns:1fr; } .info { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<h1>Type M & Type S Errors</h1>
+<p class="subtitle">Errors of <strong>Magnitude</strong> and <strong>Sign</strong> in noisy studies</p>
+
+<div class="controls">
+  <div class="ctrl">
+    <label>True Effect Size</label>
+    <div class="slider-row">
+      <input type="range" id="trueEff" min="0.05" max="1.5" step="0.05" value="0.3">
+      <input type="number" id="trueEffNum" min="0.05" max="1.5" step="0.05" value="0.3">
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Study Noise (SE)</label>
+    <div class="slider-row">
+      <input type="range" id="noise" min="0.2" max="2.0" step="0.1" value="1.0">
+      <input type="number" id="noiseNum" min="0.2" max="2.0" step="0.1" value="1.0">
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Significance Threshold</label>
+    <div class="slider-row">
+      <input type="range" id="alpha" min="0.01" max="0.20" step="0.01" value="0.05">
+      <input type="number" id="alphaNum" min="0.01" max="0.20" step="0.01" value="0.05">
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Sample Size (n)</label>
+    <div class="slider-row">
+      <input type="range" id="sampleN" min="3" max="100" step="1" value="30">
+      <input type="number" id="sampleNNum" min="3" max="100" step="1" value="30">
+    </div>
+  </div>
+  <div class="ctrl">
+    <label>Simulated Studies</label>
+    <div class="slider-row">
+      <input type="range" id="nStudies" min="100" max="2000" step="100" value="500">
+      <input type="number" id="nStudiesNum" min="100" max="2000" step="100" value="500">
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="leg"><div class="dot" style="background:#555"></div> Not significant</div>
+  <div class="leg"><div class="dot" style="background:#6bff9e"></div> Significant, correct sign</div>
+  <div class="leg"><div class="dot" style="background:#ffb347"></div> Type S error (wrong sign)</div>
+  <div class="leg"><div class="dot" style="background:#ff6b6b"></div> Type M error (|est| > 2× true)</div>
+</div>
+
+<div class="grid">
+  <canvas id="scatterCanvas" height="260"></canvas>
+  <canvas id="distCanvas" height="260"></canvas>
+</div>
+
+<div class="stats">
+  <div class="stat-box"><div class="stat-label">Power</div><div class="stat-val blue" id="sPower">—</div></div>
+  <div class="stat-box"><div class="stat-label">Type S Rate<br><small style="color:#888;font-size:0.65em">among significant</small></div><div class="stat-val orange" id="sTypeS">—</div></div>
+  <div class="stat-box"><div class="stat-label">Type M Rate<br><small style="color:#888;font-size:0.65em">among significant</small></div><div class="stat-val red" id="sTypeM">—</div></div>
+  <div class="stat-box"><div class="stat-label">Exaggeration Ratio<br><small style="color:#888;font-size:0.65em">median |est| / true</small></div><div class="stat-val green" id="sExagg">—</div></div>
+</div>
+
+<div class="info">
+  <div>
+    <h3>Type S Error <span class="tag tag-s">Sign</span></h3>
+    When a statistically significant result has the <em>wrong sign</em> — concluding an effect is positive when it's actually negative (or vice versa). Most dangerous when true effects are small and noise is large.
+  </div>
+  <div>
+    <h3>Type M Error <span class="tag tag-m">Magnitude</span></h3>
+    When a statistically significant result <em>greatly exaggerates</em> the true effect size. Publication bias amplifies this: only large, noisy estimates clear the significance threshold, inflating apparent effect sizes.
+  </div>
+</div>
+
+<script>
+const params = {
+  trueEff: 0.3, noise: 1.0, alpha: 0.05, nStudies: 500, sampleN: 30
+};
+
+const configs = {
+  trueEff:  { min: 0.05, max: 1.5,  step: 0.05, decimals: 2 },
+  noise:    { min: 0.2,  max: 2.0,  step: 0.1,  decimals: 1 },
+  alpha:    { min: 0.01, max: 0.20, step: 0.01, decimals: 2 },
+  sampleN:  { min: 3,    max: 100,  step: 1,    decimals: 0 },
+  nStudies: { min: 100,  max: 2000, step: 100,  decimals: 0 },
+};
+
+Object.keys(configs).forEach(k => {
+  const {min, max, step, decimals} = configs[k];
+  const slider = document.getElementById(k);
+  const num    = document.getElementById(k + 'Num');
+
+  slider.addEventListener('input', () => {
+    const v = +slider.value;
+    params[k] = v;
+    num.value = decimals > 0 ? v.toFixed(decimals) : v;
+    update();
+  });
+
+  num.addEventListener('change', () => {
+    let v = parseFloat(num.value);
+    if (isNaN(v)) v = params[k];
+    v = Math.min(max, Math.max(min, Math.round(v / step) * step));
+    v = parseFloat(v.toFixed(decimals));
+    params[k] = v;
+    num.value = decimals > 0 ? v.toFixed(decimals) : v;
+    slider.value = v;
+    update();
+  });
+
+  num.addEventListener('keydown', e => { if (e.key === 'Enter') num.dispatchEvent(new Event('change')); });
+});
+
+function normalRandom() {
+  let u = 0, v = 0;
+  while(!u) u = Math.random();
+  while(!v) v = Math.random();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+function simulate() {
+  const {trueEff, noise, alpha, nStudies, sampleN} = params;
+  const critZ = { 0.01:2.576,0.02:2.326,0.03:2.17,0.04:2.054,0.05:1.96,0.06:1.88,0.07:1.812,0.08:1.75,0.09:1.695,0.10:1.645,0.11:1.598,0.12:1.555,0.13:1.514,0.14:1.476,0.15:1.44,0.16:1.405,0.17:1.372,0.18:1.341,0.19:1.311,0.20:1.282 };
+  const za = critZ[Math.round(alpha*100)/100] || 1.96;
+  const studies = [];
+  for(let i=0; i<nStudies; i++) {
+    const se = noise / Math.sqrt(sampleN);
+    const est = trueEff + se * normalRandom();
+    const z = est / se;
+    const sig = Math.abs(z) >= za;
+    const typeS = sig && (est < 0);
+    const typeM = sig && (Math.abs(est) > 2 * trueEff);
+    studies.push({est, z, sig, typeS, typeM});
+  }
+  return {studies, za};
+}
+
+function drawScatter(studies) {
+  const c = document.getElementById('scatterCanvas');
+  const W = c.width = c.offsetWidth * devicePixelRatio;
+  const H = c.height = 260 * devicePixelRatio;
+  const ctx = c.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const w = W/devicePixelRatio, h = H/devicePixelRatio;
+  ctx.clearRect(0,0,w,h);
+  const pad = {l:40,r:10,t:20,b:30};
+  const pw = w-pad.l-pad.r, ph = h-pad.t-pad.b;
+  const ests = studies.map(s=>s.est);
+  const maxE = Math.max(Math.abs(Math.min(...ests)), Math.abs(Math.max(...ests)), params.trueEff*3+0.5);
+  const toX = i => pad.l + (i/(studies.length-1)) * pw;
+  const toY = v => pad.t + ph/2 - (v/maxE)*(ph/2*0.9);
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t); ctx.lineTo(pad.l,pad.t+ph); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t+ph/2); ctx.lineTo(pad.l+pw,pad.t+ph/2); ctx.stroke();
+  ctx.strokeStyle='#6bff9e44'; ctx.lineWidth=1.5; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(pad.l,toY(params.trueEff)); ctx.lineTo(pad.l+pw,toY(params.trueEff)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#6bff9e88'; ctx.font='10px sans-serif';
+  ctx.fillText('True effect', pad.l+4, toY(params.trueEff)-4);
+  ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='right';
+  [maxE,0,-maxE].forEach(v => ctx.fillText(v.toFixed(1), pad.l-4, toY(v)+3));
+  ctx.textAlign='left';
+  studies.forEach((s,i) => {
+    let color = '#55555588';
+    if(s.sig) color = '#6bff9ecc';
+    if(s.typeM) color = '#ff6b6bcc';
+    if(s.typeS) color = '#ffb347cc';
+    ctx.beginPath(); ctx.arc(toX(i), toY(s.est), 2.5, 0, Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+  });
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('Estimated Effect by Study', w/2, h-6);
+}
+
+function drawDist(studies) {
+  const c = document.getElementById('distCanvas');
+  const W = c.width = c.offsetWidth * devicePixelRatio;
+  const H = c.height = 260 * devicePixelRatio;
+  const ctx = c.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const w = W/devicePixelRatio, h = H/devicePixelRatio;
+  ctx.clearRect(0,0,w,h);
+  const pad = {l:40,r:10,t:20,b:30};
+  const pw = w-pad.l-pad.r, ph = h-pad.t-pad.b;
+  const ests = studies.map(s=>s.est);
+  const range = Math.max(Math.abs(Math.min(...ests)), Math.abs(Math.max(...ests)), params.trueEff*2+0.5)*1.1;
+  const bins = 40, binW = 2*range/bins;
+  function mkHist(data) {
+    const h = new Array(bins).fill(0);
+    data.forEach(v => { const b = Math.floor((v+range)/binW); if(b>=0&&b<bins) h[b]++; });
+    return h;
+  }
+  const allH = mkHist(ests);
+  const sigH = mkHist(studies.filter(s=>s.sig).map(s=>s.est));
+  const maxH = Math.max(...allH, 1);
+  const toX = v => pad.l + ((v+range)/(2*range))*pw;
+  const toBarH = n => (n/maxH)*ph*0.9;
+  allH.forEach((n,i) => {
+    const x = pad.l+(i/bins)*pw, bw = pw/bins-1;
+    ctx.fillStyle='#33445588'; ctx.fillRect(x, pad.t+ph-toBarH(n), bw, toBarH(n));
+  });
+  sigH.forEach((n,i) => {
+    const x = pad.l+(i/bins)*pw, bw = pw/bins-1;
+    const center = -range+(i+0.5)*binW;
+    let color = '#6bff9eaa';
+    if(center<0) color='#ffb347aa';
+    else if(Math.abs(center)>2*params.trueEff) color='#ff6b6baa';
+    ctx.fillStyle=color; ctx.fillRect(x, pad.t+ph-toBarH(n), bw, toBarH(n));
+  });
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.l,pad.t+ph); ctx.lineTo(pad.l+pw,pad.t+ph); ctx.stroke();
+  ctx.strokeStyle='#6bff9e'; ctx.lineWidth=2; ctx.setLineDash([4,4]);
+  const tx = toX(params.trueEff);
+  ctx.beginPath(); ctx.moveTo(tx,pad.t); ctx.lineTo(tx,pad.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#6bff9e'; ctx.font='10px sans-serif'; ctx.textAlign='left';
+  ctx.fillText('True', tx+3, pad.t+12);
+  ctx.strokeStyle='#555'; ctx.lineWidth=1;
+  const zx = toX(0);
+  ctx.beginPath(); ctx.moveTo(zx,pad.t); ctx.lineTo(zx,pad.t+ph); ctx.stroke();
+  ctx.fillStyle='#666'; ctx.font='10px sans-serif'; ctx.textAlign='center';
+  [-range,0,range].forEach(v => ctx.fillText(v.toFixed(1), toX(v), pad.t+ph+14));
+  ctx.fillStyle='#888'; ctx.font='11px sans-serif';
+  ctx.fillText('Distribution of Estimates (colored = significant)', w/2, h-6);
+}
+
+function update() {
+  const {studies} = simulate();
+  drawScatter(studies);
+  drawDist(studies);
+  const sig = studies.filter(s=>s.sig);
+  document.getElementById('sPower').textContent  = (sig.length/studies.length*100).toFixed(1)+'%';
+  document.getElementById('sTypeS').textContent  = sig.length ? (sig.filter(s=>s.typeS).length/sig.length*100).toFixed(1)+'%' : '0%';
+  document.getElementById('sTypeM').textContent  = sig.length ? (sig.filter(s=>s.typeM).length/sig.length*100).toFixed(1)+'%' : '0%';
+  const sorted = sig.map(s=>Math.abs(s.est)).sort((a,b)=>a-b);
+  const med = sorted.length ? sorted[Math.floor(sorted.length/2)] : 0;
+  document.getElementById('sExagg').textContent  = (med/params.trueEff).toFixed(2)+'×';
+}
+
+window.addEventListener('resize', update);
+update();
+</script>
+</body>
+</html>
